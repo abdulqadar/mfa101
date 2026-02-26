@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  passwordHash String        @map("password_hash")
+  isActive     Boolean       @default(true) @map("is_active")
+  isAdmin      Boolean       @default(false) @map("is_admin")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  mfaMethods     MfaMethod[]
+  recoveryCodes RecoveryCode[]
+  sessions      Session[]
+
+  @@map("users")
+}
+
+model MfaMethod {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  type      String
+  label     String?
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  totpSecret        TotpSecret?
+  webauthnCreds     WebauthnCredential[]
+
+  @@map("mfa_methods")
+}
+
+model TotpSecret {
+  id         String   @id @default(uuid())
+  mfaMethodId String  @unique @map("mfa_method_id")
+  secret     String
+  confirmed  Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  mfaMethod MfaMethod @relation(fields: [mfaMethodId], references: [id], onDelete: Cascade)
+
+  @@map("totp_secrets")
+}
+
+model WebauthnCredential {
+  id           String   @id @default(uuid())
+  mfaMethodId  String   @map("mfa_method_id")
+  credentialId String   @unique @map("credential_id")
+  publicKey    String   @map("public_key")
+  signCount    BigInt   @map("sign_count")
+  transports   String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  mfaMethod MfaMethod @relation(fields: [mfaMethodId], references: [id], onDelete: Cascade)
+
+  @@map("webauthn_credentials")
+}
+
+model RecoveryCode {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  codeHash  String   @map("code_hash")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("recovery_codes")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String?  @map("user_id")
+  type      String
+  data      Json
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
